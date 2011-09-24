@@ -14,9 +14,9 @@ import qualified Data.Text.Lazy as T
 import Data.List
 import Data.Int
 
-type Coord2 = (Int, Int)
-type Coord3 = (Int, Int, Int)
-type RegionList = [(Coord2, [(Coord2, [Word8])])]
+type Coord2 = (Int64, Int64)
+type Coord3 = (Int64, Int64, Int64)
+type RegionList = Array Coord2 (Array Coord2 B.ByteString)
 
 main = do
   args <- getArgs
@@ -27,42 +27,31 @@ main = do
   let min' = (min x1 x2, 0, min z1 z2)
   let max' = (max x1 x2, 20, max z1 z2)
   let coords = between min' max'
-  regions <- readRegions (head args) (x1, z1) (x2, z2)
+  block <- readRegions (head args) (x1, z1) (x2, z2) >>= return . getBlock
   
   -- The general idea here is to create a list of all coordinates to search,
   -- then check each one of them. This could be done more efficiently by just
   -- mapping over the bytestrings representing each chunk, but this seems fast
   -- enough for now, so why bother?
-  let diamonds = reverse $ sort $ getGroups min' max' regions coords
+  let diamonds = reverse $ sort $ getGroups min' max' block coords
   mapM_ printSite diamonds
 
-getGroups :: Coord3 -> Coord3 -> RegionList -> [Coord3] -> [(Int, Coord3)]
-getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) regs cs =
+getGroups :: Coord3 -> Coord3 -> (Coord3 -> Word8) -> [Coord3] -> [(Int, Coord3)]
+getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) block cs =
   runST $ do
-    groups <- toRegionArray regs >>= getGroups
+    marks <- newArray (c1, c2) True :: ST s (STUArray s Coord3 Bool)
+    groups <- getGroups marks
     return $ map (\x -> (length x, head x)) $ filter (not . null) groups
   where
-    bounds = ((x1 `div` 512, z1 `div` 512), (x2 `div` 512, z2 `div` 512))
-    toRegionArray inner = do
-      arr <- mapM toChunkArray inner
-      return $ array bounds arr
-
-    toChunkArray (c, inner) = do
-      arr <- mapM toBlockArray inner
-      return (c, array ((0,0), (31,31)) arr)
-
-    toBlockArray :: (Coord2, [Word8]) -> ST s (Coord2, STUArray s Int Word8)
-    toBlockArray (c, bs) = do
-      arr <- newListArray (0, 16*16*128 - 1) bs
-      return (c, arr)
-
-    getGroups regions =
+    getGroups marks =
       go [] $ between c1 c2
       where
+        -- Accumulate a list of all encountered groups of resources.
         go acc (c:cs) = do
-          resource <- isResource regions c
+          resource <- isResource c
           if resource
             then do
+              mark c
               group <- floodfill c
               go ((c:group):acc) cs
             else
@@ -70,20 +59,32 @@ getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) regs cs =
         go acc _ =
           return acc
 
-        floodfill (x, y, z) = do
+        -- Simple floodfill algorithm; given the coordinate of a confirmed
+        -- resource, mark and add to a list all adjacent resources, then
+        -- recursively apply the floodfill to them too.
+        floodfill c@(x, y, z) = do
           let adjacent = between (x-1,y-1,z-1) (x+1,y+1,z+1)
-          resources <- filterM (isResource regions) adjacent
+          resources <- filterM isResource adjacent
           rss <- mapM floodfill resources
           return $ concat (resources:rss)
 
-    -- Returns true if the given block is an un-marked resource block,
-    -- otherwise false.
-    -- At the moment, diamond (56) is hard-coded as the resource we're looking
-    -- for.
-    isResource m coord@(x, y, z) = do
-      if x < x1 || x > x2 || y < y1 || y > y2 || z < z1 || z > z2
-        then return False
-        else liftM (== 56) $ checkBlock m coord
+        -- Returns true if the given block is an un-marked resource block,
+        -- otherwise false. After checking the block, if it was a resource,
+        -- mark it as visited.
+        -- At the moment, diamond (56) is hard-coded as the resource we're
+        -- looking for.
+        isResource coord@(x, y, z) = do
+          if x < x1 || x > x2 || y < y1 || y > y2 || z < z1 || z > z2
+            then return False
+          else if block coord == 56
+            then do
+              x <- haventSeen coord
+              mark coord
+              return x
+          else return False
+        
+        mark c = writeArray marks c False
+        haventSeen = readArray marks
 
 -- | Print the location of a dig site, along with the number of resources
 --   to be found on that site in the following format:
@@ -97,18 +98,11 @@ printSite (n, c) = putStrLn $ (pad 3 n) ++ show c
 
 -- | Returns the block ID at the given coordinates. Returns 0 if the
 --   coordinates point to a chunk that hasn't been loaded or generated.
---   After the block has been checked, set its ID to 1, to mark the resource
---   as already checked and thus no longer existent.
 --   As for the magic numbers in calculating block offsets, see
 --   http://www.minecraftwiki.net/wiki/Alpha_Level_Format/Chunk_File_Format
 --   for details.
-checkBlock :: Array Coord2 (Array Coord2 (STUArray s Int Word8))
-           -> Coord3
-           -> ST s Word8
-checkBlock regions (x, y, z) = do
-  id <- readArray chunk pos
-  writeArray chunk pos 1 -- Mark resource as taken by changing it to stone
-  return id
+getBlock :: RegionList -> Coord3 -> Word8
+getBlock regions (x, y, z) = chunk `B.index` pos
   where
     -- Region coordinates; each region contains 32x32 chunks, which in turn
     -- contain 16x16 blocks, so there's a new region every 512 (16*32) blocks.
@@ -129,22 +123,22 @@ readRegions path (x1, z1) (x2, z2) = do
   let (rx1, rz1) = (x1 `div` 512, z1 `div` 512)
   let (rx2, rz2) = (x2 `div` 512, z2 `div` 512)
   let regions = between (rx1, 0, rz1) (rx2, 0, rz2)
-  mapM (getRegion path) regions
+  mapM (getRegion path) regions >>= return . array ((rx1,rz1),(rx2,rz2))
   where
     regFileName path (x, _, z) =
       path ++ "/region/r." ++ show x ++ "." ++ show z ++ ".mcr"
     
     getRegion p c@(x, _, z) = do
       reg <- readRegionFile (regFileName p c)
-      return ((x, z), map blocksOnly $ unR reg)
+      return ((x, z), fmap blocksOnly $ unR reg)
     
-    blocksOnly (c, TCompound _ m) =
+    blocksOnly (TCompound _ m) =
       case M.lookup (T.pack "Level") m of
         Just (TCompound _ m') ->
           case m' M.! T.pack "Blocks" of
-            TBytes bs -> (c, B.unpack bs)
+            TBytes bs -> bs
         _ ->
-          (c, repeat 0) -- chunk not loaded; infinite zeroes!
+          error "OH SHI-"
 
 -- | Create a list of all coordinates between (x1,y1,z1) and (x2,y2,z2).
 --   Assumes all components of the first coordinate to be strictly less than

@@ -9,10 +9,11 @@ import Data.Bits
 import Codec.NBT
 import qualified Data.Map as M
 import Data.Text.Lazy
+import Data.Int
 
-type Coord2 = (Int, Int)
+type Coord2 = (Int64, Int64)
 
-newtype Region = Region {unR :: [(Coord2, NBTData)]}
+newtype Region = Region {unR :: Array Coord2 NBTData}
 
 instance Binary Region where
   get = readRegion >>= return . Region
@@ -23,15 +24,15 @@ readRegionFile :: FilePath -> IO Region
 readRegionFile fp = B.readFile fp >>= return . decode
 
 -- | Read all chunks in a region.
-readRegion :: Get [(Coord2, NBTData)]
+readRegion :: Get (Array Coord2 NBTData)
 readRegion = do
   (lookAhead readLocs) >>= readChunks
 
 -- | Read all chunks at the given coordinates and return them as an array
---   indexed by said coordinates.
-readChunks :: [(Coord2, Int)] -> Get [(Coord2, NBTData)]
+--   indexed by said coordinates. The given list should contain 32x32 elements.
+readChunks :: [(Coord2, Int)] -> Get (Array Coord2 NBTData)
 readChunks locs = do
-  mapM readChunkAt locs
+  mapM readChunkAt locs >>= return . array ((0,0), (31,31))
 
 -- | Read the chunk at the given position, and return it pared with its
 --   position.
