@@ -2,7 +2,7 @@ HSFILES=Main.hs Region.hs Codec/NBT/NBTData.hs Codec/NBT.hs Codec/NBT/Put.hs Cod
 
 HSFLAGS=--make
 OPTFLAGS=-O2 -fforce-recomp
-DBGFLAGS=-prof -auto-all -rtsopts
+DBGFLAGS=-O2 -prof -auto-all -rtsopts
 
 rfinder: $(HSFILES)
 	ghc $(HSFLAGS) -o rfinder Main.hs
