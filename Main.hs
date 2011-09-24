@@ -18,6 +18,13 @@ type Coord2 = (Int64, Int64)
 type Coord3 = (Int64, Int64, Int64)
 type RegionList = Array Coord2 (Array Coord2 B.ByteString)
 
+-- | The various obstacles that might be encountered when digging straight
+--   down to a resource cluster. Constructors must be listed in order from
+--   best to worst, so that if a is worse than b, then a > b, according to the
+--   derived Ord instance.
+data PathFeature = Safe | Air | Water | Lava
+  deriving (Show, Eq, Ord)
+
 main = do
   args <- getArgs
   if length args < 5
@@ -41,13 +48,15 @@ getGroups :: Coord3
           -> Coord3
           -> (Coord3 -> Word8)
           -> [Coord3]
-          -> [(Int, Bool, Coord3)]
+          -> [(Int, PathFeature, Coord3)]
 getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) block cs =
   runST $ do
     marks <- newArray (c1, c2) True :: ST s (STUArray s Coord3 Bool)
-    groups <- getGroups marks
-    return $ map (\x -> (length x, pathIsSafe block (head x), head x)) groups
+    getGroups marks >>= return . map summarizeCluster
   where
+    summarizeCluster x =
+      (length x, worstPathFeature block (head x), head x)
+
     getGroups marks =
       go [] $ between c1 c2
       where
@@ -96,13 +105,11 @@ getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) block cs =
 --   n  safe  (x,y,z)
 --   The number of spaces separating n from (x,y,z) will always be at least one
 --   and at most two.
-printSite :: (Int, Bool, Coord3) -> IO ()
-printSite (num, safe, coords) = putStrLn $
-    (pad 3 $ show num) ++
-    (pad 7 $ if safe then "safe" else "unsafe") ++
-    (show coords)
+printSite :: (Int, PathFeature, Coord3) -> IO ()
+printSite (num, safe, coords) =
+  putStrLn $ pad 4 num ++ pad 7 safe ++ show coords
   where
-    pad n s = s ++ replicate (max 1 (n-length s)) ' '
+    pad n x = let s = show x in s ++ replicate (max 1 (n-length s)) ' '
 
 -- | Returns the block ID at the given coordinates. Returns 0 if the
 --   coordinates point to a chunk that hasn't been loaded or generated.
@@ -126,13 +133,16 @@ getBlock regions (x, y, z) = chunk `B.index` pos
 
 -- | Returns True if the path from (x, 55, z) to (x, y, z) is clear of lava,
 --   water and air; that is, if digging straight down is relatively safe.
-pathIsSafe :: (Coord3 -> Word8) -> Coord3 -> Bool
-pathIsSafe block (x,y,z) =
-  all (safe . block) $ between (x,y,z) (x,55,z)
+worstPathFeature :: (Coord3 -> Word8) -> Coord3 -> PathFeature
+worstPathFeature block (x,y,z) =
+  maximum . map (badFeature . block) $ between (x,y,z) (x,55,z)
   where
-    safe 0                     = False -- air; a cave or something
-    safe n | n >= 8 && n <= 11 = False -- water or lava
-    safe _                     = True  -- anything else
+    badFeature 0  = Air
+    badFeature 8  = Water
+    badFeature 9  = Water
+    badFeature 10 = Lava
+    badFeature 11 = Lava
+    badFeature _  = Safe
 
 -- | Read in all blocks in the regions in the given interval, returning an
 --   array of the the regions in said interval.
