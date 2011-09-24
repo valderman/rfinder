@@ -36,12 +36,17 @@ main = do
   let diamonds = reverse $ sort $ getGroups min' max' block coords
   mapM_ printSite diamonds
 
-getGroups :: Coord3 -> Coord3 -> (Coord3 -> Word8) -> [Coord3] -> [(Int, Coord3)]
+-- | Get all diamond clusters in the searched area.
+getGroups :: Coord3
+          -> Coord3
+          -> (Coord3 -> Word8)
+          -> [Coord3]
+          -> [(Int, Bool, Coord3)]
 getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) block cs =
   runST $ do
     marks <- newArray (c1, c2) True :: ST s (STUArray s Coord3 Bool)
     groups <- getGroups marks
-    return $ map (\x -> (length x, head x)) $ filter (not . null) groups
+    return $ map (\x -> (length x, pathIsSafe block (head x), head x)) groups
   where
     getGroups marks =
       go [] $ between c1 c2
@@ -88,13 +93,16 @@ getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) block cs =
 
 -- | Print the location of a dig site, along with the number of resources
 --   to be found on that site in the following format:
---   n  (x,y,z)
+--   n  safe  (x,y,z)
 --   The number of spaces separating n from (x,y,z) will always be at least one
 --   and at most two.
-printSite :: (Int, Coord3) -> IO ()
-printSite (n, c) = putStrLn $ (pad 3 n) ++ show c
+printSite :: (Int, Bool, Coord3) -> IO ()
+printSite (num, safe, coords) = putStrLn $
+    (pad 3 $ show num) ++
+    (pad 7 $ if safe then "safe" else "unsafe") ++
+    (show coords)
   where
-    pad n x = let s = show x in s ++ replicate (max 1 (n-length s)) ' '
+    pad n s = s ++ replicate (max 1 (n-length s)) ' '
 
 -- | Returns the block ID at the given coordinates. Returns 0 if the
 --   coordinates point to a chunk that hasn't been loaded or generated.
@@ -115,6 +123,16 @@ getBlock regions (x, y, z) = chunk `B.index` pos
     (bx, bz) = (x `mod` 16,  z `mod` 16)
     chunk    = regions ! (rx, rz) ! (cx, cz)
     pos      = (y+bz*128+bx*128*16)
+
+-- | Returns True if the path from (x, 55, z) to (x, y, z) is clear of lava,
+--   water and air; that is, if digging straight down is relatively safe.
+pathIsSafe :: (Coord3 -> Word8) -> Coord3 -> Bool
+pathIsSafe block (x,y,z) =
+  all (safe . block) $ between (x,y,z) (x,55,z)
+  where
+    safe 0                     = False -- air; a cave or something
+    safe n | n >= 8 && n <= 11 = False -- water or lava
+    safe _                     = True  -- anything else
 
 -- | Read in all blocks in the regions in the given interval, returning an
 --   array of the the regions in said interval.
