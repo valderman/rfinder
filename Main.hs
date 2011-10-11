@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, OverloadedStrings #-}
 module Main (main) where
 import qualified Data.ByteString.Lazy as B
 import System.Environment (getArgs)
@@ -13,6 +13,7 @@ import qualified Data.Map as M
 import qualified Data.Text.Lazy as T
 import Data.List
 import Data.Int
+import Data.Maybe (fromJust)
 
 type Coord2 = (Int64, Int64)
 type Coord3 = (Int64, Int64, Int64)
@@ -166,13 +167,10 @@ readRegions path (x1, z1) (x2, z2) = do
       reg <- readRegionFile (regFileName p c)
       return ((x, z), fmap blocksOnly $ unR reg)
     
-    blocksOnly (TCompound _ m) =
-      case M.lookup (T.pack "Level") m of
-        Just (TCompound _ m') ->
-          case m' M.! T.pack "Blocks" of
-            TBytes bs -> bs
-        _ ->
-          error "OH SHI-"
+    blocksOnly (TCompound _ m) = fromJust $ do
+      TCompound _ m' <- M.lookup "Level" m
+      TBytes bs <- M.lookup "Blocks" m'
+      return bs
 
 -- | Create a list of all coordinates between (x1,y1,z1) and (x2,y2,z2).
 --   Assumes all components of the first coordinate to be strictly less than
