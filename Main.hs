@@ -133,10 +133,16 @@ getBlock regions (x, y, z) = chunk `B.index` pos
 
 -- | Returns True if the path from (x, 55, z) to (x, y, z) is clear of lava,
 --   water and air; that is, if digging straight down is relatively safe.
+--   Y coordinate is chosen as 55 to avoid marking anything below the ocean
+--   floor as unsafe.
 worstPathFeature :: (Coord3 -> Word8) -> Coord3 -> PathFeature
 worstPathFeature block (x,y,z) =
-  maximum . map (badFeature . block) $ between (x,y,z) (x,55,z)
+  maximum . map (badFeature . block) $ coords
   where
+    -- Ensure that the entire "cross" that may affect the dig path is checked.
+    coords = between (x-1,y,z) (x+1,55,z) ++
+             between (x,y,z-1) (x,55,z-1) ++
+             between (x-1,y,z+1) (x+1,55,z+1)
     badFeature 0  = Air
     badFeature 8  = Water
     badFeature 9  = Water
