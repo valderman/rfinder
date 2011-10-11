@@ -141,9 +141,10 @@ worstPathFeature block (x,y,z) =
   maximum . map (badFeature . block) $ coords
   where
     -- Ensure that the entire "cross" that may affect the dig path is checked.
-    coords = between (x-1,y,z) (x+1,55,z) ++
-             between (x,y,z-1) (x,55,z-1) ++
-             between (x-1,y,z+1) (x+1,55,z+1)
+    coords = concat [between (x-1,y,z) (x+1,55,z),
+                     between (x,y,z-1) (x,55,z-1),
+                     between (x-1,y,z+1) (x+1,55,z+1)]
+
     badFeature 0  = Air
     badFeature 8  = Water
     badFeature 9  = Water
