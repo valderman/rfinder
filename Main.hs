@@ -29,28 +29,41 @@ data PathFeature = Safe | Air | Water | Lava
 main = do
   args <- getArgs
   if length args < 5
-    then error "Usage: rfinder path x1 z1 x2 z2"
+    then error "Usage: rfinder path x1 z1 x2 z2 [iron | clay | diamond | #blockID]"
     else return ()
-  let [x1, z1, x2, z2] = map read . tail $ args
-  let min' = (min x1 x2, 0, min z1 z2)
-  let max' = (max x1 x2, 20, max z1 z2)
-  let coords = between min' max'
+  let [x1,z1,x2,z2] = map read . take 4 . tail $ args
+      rest = drop 5 args
+      -- By default, only look for diamonds. If anything else is specified,
+      -- look at anything at sea level or below.
+      maxY = if not (null rest) then 64 else 20
+      -- what are we looking for?
+      resourceBlockID =
+        case rest of
+          ["diamond"] -> 56
+          ["clay"] -> 82
+          ["iron"] -> 15
+          [str] | [(bid, "")] <- reads str -> bid
+          _ -> 56 -- diamonds by default
+      min' = (min x1 x2, 0, min z1 z2)
+      max' = (max x1 x2, maxY, max z1 z2)
+      coords = between min' max'
   block <- readRegions (head args) (x1, z1) (x2, z2) >>= return . getBlock
   
   -- The general idea here is to create a list of all coordinates to search,
   -- then check each one of them. This could be done more efficiently by just
   -- mapping over the bytestrings representing each chunk, but this seems fast
   -- enough for now, so why bother?
-  let diamonds = reverse $ sort $ getGroups min' max' block coords
-  mapM_ printSite diamonds
+  let resources = reverse $ sort $ getGroups min' max' block coords resourceBlockID
+  mapM_ printSite resources
 
--- | Get all diamond clusters in the searched area.
+-- | Get all resource clusters in the searched area.
 getGroups :: Coord3
           -> Coord3
           -> (Coord3 -> Word8)
           -> [Coord3]
+          -> Word8
           -> [(Int, PathFeature, Coord3)]
-getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) block cs =
+getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) block cs ourResource =
   runST $ do
     marks <- newArray (c1, c2) True :: ST s (STUArray s Coord3 Bool)
     getGroups marks >>= return . map summarizeCluster
@@ -86,12 +99,10 @@ getGroups c1@(x1, y1, z1) c2@(x2, y2, z2) block cs =
         -- Returns true if the given block is an un-marked resource block,
         -- otherwise false. After checking the block, if it was a resource,
         -- mark it as visited.
-        -- At the moment, diamond (56) is hard-coded as the resource we're
-        -- looking for.
         isResource coord@(x, y, z) = do
           if x < x1 || x > x2 || y < y1 || y > y2 || z < z1 || z > z2
             then return False
-          else if block coord == 56
+          else if block coord == ourResource
             then do
               x <- haventSeen coord
               mark coord
