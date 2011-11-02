@@ -149,7 +149,10 @@ getBlock regions (x, y, z) = chunk `B.index` pos
 --   floor as unsafe.
 worstPathFeature :: (Coord3 -> Word8) -> Coord3 -> PathFeature
 worstPathFeature block (x,y,z) =
-  maximum . map (badFeature . block) $ coords
+  -- If the resource is at the surface, it's quite obviously safe.
+  case  map (badFeature . block) $ coords of
+    [] -> Safe
+    xs -> maximum xs
   where
     -- Ensure that the entire "cross" that may affect the dig path is checked.
     coords = concat [between (x-1,y,z) (x+1,55,z),
