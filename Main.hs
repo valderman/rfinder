@@ -29,7 +29,7 @@ data PathFeature = Safe | Air | Water | Lava
 main = do
   args <- getArgs
   if length args < 5
-    then error "Usage: rfinder path x1 z1 x2 z2 [iron | clay | diamond | #blockID]"
+    then error "Usage: rfinder path x1 z1 x2 z2 [iron | clay | diamond | gold | #blockID]"
     else return ()
   let [x1,z1,x2,z2] = map read . take 4 . tail $ args
       rest = drop 5 args
@@ -42,6 +42,7 @@ main = do
           ["diamond"] -> 56
           ["clay"] -> 82
           ["iron"] -> 15
+          ["gold"] -> 14
           [str] | [(bid, "")] <- reads str -> bid
           _ -> 56 -- diamonds by default
       min' = (min x1 x2, 0, min z1 z2)
