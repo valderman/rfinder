@@ -29,22 +29,21 @@ data PathFeature = Safe | Air | Water | Lava
 main = do
   args <- getArgs
   if length args < 5
-    then error "Usage: rfinder path x1 z1 x2 z2 [iron | clay | diamond | gold | #blockID]"
+    then error "Usage: rfinder path x1 z1 x2 z2 [iron | clay | diamond | gold | blockID]"
     else return ()
   let [x1,z1,x2,z2] = map read . take 4 . tail $ args
       rest = drop 5 args
       -- By default, only look for diamonds. If anything else is specified,
       -- look at anything at sea level or below.
-      maxY = if not (null rest) then 64 else 20
       -- what are we looking for?
-      resourceBlockID =
+      (resourceBlockID, maxY) =
         case rest of
-          ["diamond"] -> 56
-          ["clay"] -> 82
-          ["iron"] -> 15
-          ["gold"] -> 14
-          [str] | [(bid, "")] <- reads str -> bid
-          _ -> 56 -- diamonds by default
+          ["diamond"] -> (56, 20)
+          ["clay"] -> (82, 64)
+          ["iron"] -> (15, 64)
+          ["gold"] -> (14, 32)
+          [str] | [(bid, "")] <- reads str -> (bid, 64)
+          _ -> (56, 20) -- diamonds by default
       min' = (min x1 x2, 0, min z1 z2)
       max' = (max x1 x2, maxY, max z1 z2)
       coords = between min' max'

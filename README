@@ -6,8 +6,10 @@ in order to build it.
 To use it, simply run it with the (x, z) coordinates and map directory you want
 to search and, optionally, the type of block you wish to find. If you don't
 specify a block type, it's assumed that you're looking for diamonds, and only
-the layers of the map where diamonds can be found are examined. Otherwise,
-the entire map from sea level down is examined.
+the layers of the map where diamonds can be found are examined. If you specify
+a preset, such as "gold" or "clay," only the layers where such blocks may be
+found are examined. If you specify a numeric block ID, the entire bottom half
+of the map will be examined.
 
 A few examples:
 
@@ -15,8 +17,8 @@ This will find all clusters of diamonds between (-100,0,-100) and (100,20,100)
 in the save called World1:
 ./rfinder -100 -100 100 100 ~/.minecraft/saves/World1
 
-Locate all clay in the rectangle (100, y, 200) (250, y, 500):
+Locate all clay in the rectangle (100, 0, 200) (250, 64, 500):
 ./rfinder 100 200 250 500 ~/.minecraft/saves/World1 clay
 
-Locate all obsidian in the rectangle (0, y, 0) (100, y, 100):
+Locate all obsidian in the rectangle (0, 0, 0) (100, 64, 100):
 ./rfinder 0 0 100 100 ~/.minecraft/saves/World1 49
