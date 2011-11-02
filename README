@@ -1,0 +1,22 @@
+A simple, hackish tool for locating resource clusters in Minecraft maps.
+
+You need a somewhat recent version (anything from 7.x will do the trick) of GHC
+in order to build it.
+
+To use it, simply run it with the (x, z) coordinates and map directory you want
+to search and, optionally, the type of block you wish to find. If you don't
+specify a block type, it's assumed that you're looking for diamonds, and only
+the layers of the map where diamonds can be found are examined. Otherwise,
+the entire map from sea level down is examined.
+
+A few examples:
+
+This will find all clusters of diamonds between (-100,0,-100) and (100,20,100)
+in the save called World1:
+./rfinder -100 -100 100 100 ~/.minecraft/saves/World1
+
+Locate all clay in the rectangle (100, y, 200) (250, y, 500):
+./rfinder 100 200 250 500 ~/.minecraft/saves/World1 clay
+
+Locate all obsidian in the rectangle (0, y, 0) (100, y, 100):
+./rfinder 0 0 100 100 ~/.minecraft/saves/World1 49
