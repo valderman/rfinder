@@ -3,6 +3,7 @@ import Data.Word
 import Data.Text.Lazy
 import Data.Map
 import Data.ByteString.Lazy
+import Data.Array
 
 type Name = Text
 
@@ -13,10 +14,11 @@ data NBTData
   | TLong Word64
   | TFloat Float
   | TDouble Double
-  | TBytes ByteString
+  | TByteArr ByteString
   | TString Text
   | TList [NBTData]
   | TCompound Text (Map Name NBTData)
+  | TIntArr (Array Int Word32)
     deriving Show
 
 -- | The type tag word for each NBTData value.
@@ -27,10 +29,11 @@ typeOf (TInt _)        = 3
 typeOf (TLong _)       = 4
 typeOf (TFloat _)      = 5
 typeOf (TDouble _)     = 6
-typeOf (TBytes _)      = 7
+typeOf (TByteArr _)    = 7
 typeOf (TString _)     = 8
 typeOf (TList _)       = 9
 typeOf (TCompound _ _) = 10
+typeOf (TIntArr _)     = 11
 
 -- | Safely get the type of a list; if the list is empty, byte is assumed.
 --   This type defaulting for empty lists might break some badly written code,

@@ -6,7 +6,8 @@ import qualified Data.Map as M
 import Data.Text.Lazy
 import Data.Text.Lazy.Encoding
 import qualified Data.ByteString.Lazy as B
-import Debug.Trace
+import Data.Word
+import Data.Array
 
 putNBT :: NBTData -> Put
 putNBT (TCompound n m) = do
@@ -23,10 +24,11 @@ writeNBT (TInt w)        = putWord32be w
 writeNBT (TLong w)       = putWord64be w
 writeNBT (TFloat f)      = putFloat32be f
 writeNBT (TDouble d)     = putFloat64be d
-writeNBT (TBytes bs)     = putBytes bs
+writeNBT (TByteArr bs)   = putBytes bs
 writeNBT (TString txt)   = putString txt
 writeNBT (TList xs)      = putList xs
 writeNBT (TCompound _ m) = putMap m
+writeNBT (TIntArr is)    = putInts is
 
 -- | Write a list to the output stream. This is slow for large lists due to
 --   the use of length; do something about that sometime.
@@ -41,6 +43,12 @@ putBytes :: B.ByteString -> Put
 putBytes bs = do
   putWord32be (fromIntegral $ B.length bs)
   putLazyByteString bs
+
+-- | Write a byte array to the output stream.
+putInts :: Array Int Word32 -> Put
+putInts is = do
+  putWord32be (fromIntegral . snd $ bounds is)
+  mapM_ (putWord32be . fromIntegral) $ elems is
 
 -- | Write an UTF-8 encoded string to the output stream; the string must not
 --   be longer than 2^16 bytes when encoded as UTF-8.

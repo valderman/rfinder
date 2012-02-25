@@ -1,4 +1,4 @@
-module Region (Region (..), readRegionFile) where
+module Region (NBTRegion (..), readRegionFile) where
 import qualified Data.ByteString.Lazy as B
 import Data.Binary.Get
 import Data.Binary
@@ -13,26 +13,27 @@ import Data.Int
 
 type Coord2 = (Int64, Int64)
 
-newtype Region = Region {unR :: Array Coord2 NBTData}
+newtype NBTRegion = NBTRegion {unR :: Array Coord2 NBTData}
 
-instance Binary Region where
-  get = readRegion >>= return . Region
+instance Binary NBTRegion where
+  get = readRegion >>= return . NBTRegion
   put = error "Sorry, no write support! :("
 
 -- | Read in a region file.
-readRegionFile :: FilePath -> IO Region
+readRegionFile :: FilePath -> IO NBTRegion
 readRegionFile fp = B.readFile fp >>= return . decode
 
 -- | Read all chunks in a region.
 readRegion :: Get (Array Coord2 NBTData)
 readRegion = do
-  (lookAhead readLocs) >>= readChunks
+  lookAhead readLocs >>= readChunks
 
 -- | Read all chunks at the given coordinates and return them as an array
 --   indexed by said coordinates. The given list should contain 32x32 elements.
 readChunks :: [(Coord2, Int)] -> Get (Array Coord2 NBTData)
 readChunks locs = do
-  mapM readChunkAt locs >>= return . array ((0,0), (31,31))
+  chunks <- mapM readChunkAt locs
+  return $ array ((0,0), (31,31)) chunks
 
 -- | Read the chunk at the given position, and return it pared with its
 --   position.
@@ -49,7 +50,9 @@ readChunkAt (coords, offset) = lookAhead $ do
 
 -- | Reads the NBT data stored in a chunk.
 readChunk :: Get NBTData
-readChunk = readChunkData >>= return . decode
+readChunk = do
+  cdata <- readChunkData
+  return $ decode cdata
 
 -- | Read and decompress a chunk, then interpret the NBT data contained within.
 readChunkData :: Get B.ByteString
@@ -58,7 +61,9 @@ readChunkData = do
   cm <- getWord8
   if cm /= 2
     then fail "File uses unsupported compression method 2!"
-    else getLazyByteString (fromIntegral len-1) >>= return . decompress
+    else do
+      chunkData <- getLazyByteString (fromIntegral len-1)
+      return $ decompress chunkData
 
 -- | Read all chunk locations, paired with their respective coordinates.
 readLocs :: Get [(Coord2, Int)]

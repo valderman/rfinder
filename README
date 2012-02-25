@@ -1,7 +1,12 @@
 A simple, hackish tool for locating resource clusters in Minecraft maps.
 
+Please note that as of this commit, only the new Anvil file format is
+supported which means that if you want to use this tool with Minecraft versions
+older than 12w07a (that is, 1.1 and earlier) you will have to use a pre-0.1
+version.
+
 You need a somewhat recent version (anything from 7.x will do the trick) of GHC
-in order to build it.
+in order to build it, along with the libraries binary and data-binary-ieee754.
 
 To use it, simply run it with the (x, z) coordinates and map directory you want
 to search and, optionally, the type of block you wish to find. If you don't
