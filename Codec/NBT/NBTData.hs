@@ -2,7 +2,7 @@ module Codec.NBT.NBTData (NBTData (..), Name, typeOf, typeOfList) where
 import Data.Word
 import Data.Text.Lazy
 import Data.Map
-import Data.ByteString.Lazy
+import Data.ByteString
 import Data.Array
 
 type Name = Text

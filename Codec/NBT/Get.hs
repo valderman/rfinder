@@ -6,7 +6,7 @@ import Data.Word
 import Data.Text.Lazy
 import Data.Text.Lazy.Encoding
 import Data.Binary.IEEE754
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString as B
 import qualified Data.Map as M
 import Data.Array
 
@@ -62,7 +62,7 @@ getCompound name = go
 -- | Read the size of a byte array as a 32-bit big endian int, then read that
 --   many bytes from the input stream.
 getByteArray :: Get B.ByteString
-getByteArray = getWord32be >>= getLazyByteString . fromIntegral
+getByteArray = getWord32be >>= getByteString . fromIntegral
 
 -- | Read the size of a byte array as a 32-bit big endian int, then read that
 --   many bytes from the input stream.

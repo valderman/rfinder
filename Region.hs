@@ -9,9 +9,8 @@ import Data.Bits
 import Codec.NBT
 import qualified Data.Map as M
 import Data.Text.Lazy
-import Data.Int
 
-type Coord2 = (Int64, Int64)
+type Coord2 = (Int, Int)
 
 newtype NBTRegion = NBTRegion {unR :: Array Coord2 NBTData}
 

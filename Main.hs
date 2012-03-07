@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables, OverloadedStrings #-}
 module Main (main) where
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString as B
 import System.Environment (getArgs)
 import Data.Array
 import Data.Array.ST

@@ -1,10 +1,11 @@
+{-# LANGUAGE BangPatterns #-}
 module BlockStore where
 import Data.Word
 import Data.Array
-import Data.Int
-import qualified Data.ByteString.Lazy as B
+import Data.Bits
+import qualified Data.ByteString as B
 
-type Idx = Int64
+type Idx = Int
 type Coord2 = (Idx, Idx)
 type Coord3 = (Idx, Idx, Idx)
 
@@ -33,26 +34,32 @@ instance BlockStore Section where
   blockAt = blockInSect
 
 blockInWorld :: World -> Coord3 -> Word8
-blockInWorld (BW world) (x, y, z) =
+blockInWorld (BW world) (!x, !y, !z) =
   blockAt (world ! (rx, rz)) (x', y, z')
   where
-    (rx, x') = x `divMod` 512
-    (rz, z') = z `divMod` 512
+    rx = x `shiftR` 9
+    rz = z `shiftR` 9
+    x' = x .&. 511
+    z' = z .&. 511
 
 blockInRegion :: Region -> Coord3 -> Word8
-blockInRegion (BR reg) (x, y, z) =
+blockInRegion (BR reg) (!x, !y, !z) =
   blockAt (reg ! (cx, cz)) (x', y, z')
   where
-    (cx, x') = x `quotRem` 16
-    (cz, z') = z `quotRem` 16
+    cx = x `shiftR` 4
+    cz = z `shiftR` 4
+    x' = x .&. 15
+    z' = z .&. 15
 
 blockInChunk :: Chunk -> Coord3 -> Word8
-blockInChunk (BC sections) (x, y, z) =
+blockInChunk (BC sections) (!x, !y, !z) =
   case sections ! sy of
     Just bs -> blockAt bs (x, y', z)
     _       -> 0
   where
-    (sy, y') = y `quotRem` 16
+    sy = y `shiftR` 4
+    y' = y .&. 15
 
 blockInSect :: Section -> Coord3 -> Word8
-blockInSect (BS bs) (x, y, z) = bs `B.index` (x + z*16 + y*256)
+blockInSect (BS bs) (!x, !y, !z) =
+  bs `B.index` (x + z*16 + y*256)

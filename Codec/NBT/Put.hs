@@ -5,7 +5,8 @@ import Codec.NBT.NBTData
 import qualified Data.Map as M
 import Data.Text.Lazy
 import Data.Text.Lazy.Encoding
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 import Data.Word
 import Data.Array
 
@@ -42,7 +43,7 @@ putList xs= do
 putBytes :: B.ByteString -> Put
 putBytes bs = do
   putWord32be (fromIntegral $ B.length bs)
-  putLazyByteString bs
+  putByteString bs
 
 -- | Write a byte array to the output stream.
 putInts :: Array Int Word32 -> Put
@@ -54,7 +55,7 @@ putInts is = do
 --   be longer than 2^16 bytes when encoded as UTF-8.
 putString :: Text -> Put
 putString txt = do
-  putWord16be (fromIntegral $ B.length bs)
+  putWord16be (fromIntegral $ BL.length bs)
   putLazyByteString bs
   where
     bs = encodeUtf8 txt
